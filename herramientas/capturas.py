@@ -7,7 +7,6 @@ import tempfile
 os.environ["NIDO_CARPETA"] = tempfile.mkdtemp(prefix="nido_capturas_")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from PySide6.QtCore import QDate  # noqa: E402
 from PySide6.QtGui import QFont  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -38,7 +37,7 @@ d = DialogoAlta(v.db, v)
 d.t_nombre.setText("Carlos Pérez")
 d.t_tel.setText("8441239999")
 d.filas[0].nombre.setText("Bruno Pérez")
-d.filas[0].fecha.setDate(QDate(2014, 5, 1))
+d.filas[0].fecha.poner(2009, 5, 1)
 d.agregar_jugador()
 d.show()
 foto(d, "2-alta.png")

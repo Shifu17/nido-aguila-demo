@@ -1,10 +1,12 @@
 """Ventanas emergentes: alta de jugadores, motivo de baja/cancelación y recibo."""
+import calendar
+from datetime import date
 from urllib.parse import quote
 
-from PySide6.QtCore import QDate, QUrl, Qt
+from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtGui import QDesktopServices, QIntValidator, QPageSize, QTextDocument
 from PySide6.QtPrintSupport import QPrintDialog, QPrinter
-from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDateEdit, QDialog, QFileDialog, QFrame,
+from PySide6.QtWidgets import (QButtonGroup, QComboBox, QDialog, QFileDialog, QFrame,
                                QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QMessageBox, QPlainTextEdit, QPushButton, QRadioButton,
                                QScrollArea, QTextBrowser, QVBoxLayout, QWidget)
@@ -34,58 +36,141 @@ def campo_telefono(placeholder="10 dígitos"):
 
 
 # ====================================================================== alta
+MESES_LARGOS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre",
+                "Octubre", "Noviembre", "Diciembre"]
+
+
+class CampoFecha(QWidget):
+    """Fecha de nacimiento con tres listas (día, mes, año): más fácil que un calendario."""
+    cambio_anio = Signal(int)
+
+    def __init__(self):
+        super().__init__()
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+        self.dia, self.mes, self.anio = QComboBox(), QComboBox(), QComboBox()
+        self.dia.setToolTip("Día")
+        self.mes.setToolTip("Mes")
+        self.anio.setToolTip("Año")
+        self.mes.addItem("Mes", None)
+        for i, m in enumerate(MESES_LARGOS, 1):
+            self.mes.addItem(m, i)
+        self.anio.addItem("Año", None)
+        hoy = date.today().year
+        for a in range(hoy - 3, hoy - 31, -1):  # de los más chicos a los más grandes
+            self.anio.addItem(str(a), a)
+        self.anio.setMaxVisibleItems(15)
+        self._llenar_dias()
+        self.dia.setMinimumWidth(82)
+        self.mes.setMinimumWidth(130)
+        self.anio.setMinimumWidth(100)
+        lay.addWidget(self.dia)
+        lay.addWidget(self.mes, 1)
+        lay.addWidget(self.anio)
+        self.mes.currentIndexChanged.connect(self._llenar_dias)
+        self.anio.currentIndexChanged.connect(self._llenar_dias)
+        self.anio.currentIndexChanged.connect(lambda _: self.cambio_anio.emit(self.anio.currentData() or 0))
+
+    def _llenar_dias(self, *_):
+        """Ajusta los días al mes y año elegidos (30, 31 o febrero bisiesto)."""
+        elegido = self.dia.currentData()
+        m, a = self.mes.currentData(), self.anio.currentData() or 2000
+        total = calendar.monthrange(a, m)[1] if m else 31
+        self.dia.blockSignals(True)
+        self.dia.clear()
+        self.dia.addItem("Día", None)
+        for d in range(1, total + 1):
+            self.dia.addItem(str(d), d)
+        if elegido:
+            self.dia.setCurrentIndex(min(elegido, total))
+        self.dia.blockSignals(False)
+
+    def poner(self, anio, mes, dia):
+        self.anio.setCurrentIndex(self.anio.findData(anio))
+        self.mes.setCurrentIndex(self.mes.findData(mes))
+        self.dia.setCurrentIndex(self.dia.findData(dia))
+
+    def valor(self):
+        """'AAAA-MM-DD' o '' si falta algún dato."""
+        d, m, a = self.dia.currentData(), self.mes.currentData(), self.anio.currentData()
+        return f"{a:04d}-{m:02d}-{d:02d}" if d and m and a else ""
+
+
 class FilaJugador(QFrame):
     """Un jugador dentro del alta (se pueden agregar hermanos)."""
 
     def __init__(self, categorias, db, al_quitar):
         super().__init__()
         self.db = db
-        self.categoria_manual = False
+        self.id_femenil = next((c["id"] for c in categorias if c["nombre"] == "Femenil"), None)
         lay = QGridLayout(self)
         lay.setContentsMargins(0, 6, 0, 6)
+        lay.setHorizontalSpacing(10)
+        lay.setVerticalSpacing(4)
         self.nombre = QLineEdit()
-        self.nombre.setPlaceholderText("Nombre completo")
-        self.fecha = QDateEdit()
-        self.fecha.setCalendarPopup(True)
-        self.fecha.setDisplayFormat("dd/MM/yyyy")
-        self.fecha.setMinimumDate(QDate(2000, 1, 1))
-        self.fecha.setMaximumDate(QDate.currentDate())
-        self.fecha.setSpecialValueText("Elegir…")
-        self.fecha.setDate(self.fecha.minimumDate())  # muestra "Elegir…" hasta que se capture
+        self.nombre.setPlaceholderText("Nombre y apellidos")
+        self.fecha = CampoFecha()
         self.categoria = QComboBox()
         self.categoria.addItem("Elegir…", None)
         for c in categorias:
             self.categoria.addItem(c["nombre"], c["id"])
+        self.categoria.setMinimumWidth(120)
         self.numero = QLineEdit()
         self.numero.setPlaceholderText("Núm.")
         self.numero.setMaxLength(3)
+        self.numero.setFixedWidth(64)
         self.numero.setValidator(QIntValidator(0, 999))
         self.quitar = boton("Quitar", "chicoPeligro")
         self.quitar.clicked.connect(lambda: al_quitar(self))
-        for col, (txt, w) in enumerate([("Nombre completo*", self.nombre), ("Fecha de nacimiento*", self.fecha),
-                                        ("Categoría*", self.categoria), ("Número", self.numero)]):
+        self.nota = QLabel("Se asigna sola al elegir el año")
+        self.nota.setObjectName("nota")
+        self.nota.setWordWrap(True)
+
+        def titulo(txt):
             et = QLabel(txt)
             et.setObjectName("suave")
-            lay.addWidget(et, 0, col)
-            lay.addWidget(w, 1, col)
-        lay.addWidget(self.quitar, 1, 4)
+            return et
+
+        # Renglón 1: nombre y número · Renglón 2: fecha y categoría (con su nota debajo)
+        lay.addWidget(titulo("Nombre completo*"), 0, 0)
+        lay.addWidget(titulo("Número"), 0, 2)
+        lay.addWidget(self.nombre, 1, 0, 1, 2)
+        lay.addWidget(self.numero, 1, 2)
+        lay.addWidget(self.quitar, 1, 3)
+        lay.addWidget(titulo("Fecha de nacimiento*"), 2, 0)
+        lay.addWidget(titulo("Categoría*"), 2, 1)
+        lay.addWidget(self.fecha, 3, 0)
+        lay.addWidget(self.categoria, 3, 1, 1, 3)
+        lay.addWidget(self.nota, 4, 1, 1, 3)
         lay.setColumnStretch(0, 3)
         lay.setColumnStretch(1, 2)
-        lay.setColumnStretch(2, 2)
-        lay.setColumnStretch(3, 1)
-        self.fecha.dateChanged.connect(self._sugerir_categoria)
-        self.categoria.activated.connect(lambda _: setattr(self, "categoria_manual", True))
+        lay.setRowMinimumHeight(2, 26)
+        self.fecha.cambio_anio.connect(self._categoria_por_anio)
+        self.categoria.activated.connect(self._categoria_elegida)
 
-    def _sugerir_categoria(self, qd):
-        if self.categoria_manual or qd == self.fecha.minimumDate():
+    def _categoria_por_anio(self, anio):
+        # Femenil se elige a mano: si ya la eligieron, cambiar el año no la quita.
+        if self.id_femenil and self.categoria.currentData() == self.id_femenil:
             return
-        c = self.db.categoria_por_anio(qd.year())
+        c = self.db.categoria_por_anio(anio) if anio else None
+        self.categoria.setCurrentIndex(self.categoria.findData(c["id"]) if c else 0)
         if c:
-            self.categoria.setCurrentIndex(self.categoria.findData(c["id"]))
+            self.nota.setText(f"Automática: nació en {anio} → {c['nombre']}. Si es niña, cambia a Femenil.")
+        elif anio:
+            self.nota.setText(f"No hay categoría para {anio}; elígela a mano.")
+        else:
+            self.nota.setText("Se asigna sola al elegir el año")
+
+    def _categoria_elegida(self, _):
+        actual = self.categoria.currentText()
+        if self.categoria.currentData() == self.id_femenil:
+            self.nota.setText("Femenil (elegida a mano)")
+        elif self.categoria.currentData():
+            self.nota.setText(f"{actual} (elegida a mano)")
 
     def datos(self):
-        fecha = "" if self.fecha.date() == self.fecha.minimumDate() else self.fecha.date().toString("yyyy-MM-dd")
-        return {"nombre": self.nombre.text(), "fecha_nac": fecha,
+        return {"nombre": self.nombre.text(), "fecha_nac": self.fecha.valor(),
                 "categoria_id": self.categoria.currentData(), "numero": self.numero.text()}
 
 
@@ -94,7 +179,7 @@ class DialogoAlta(QDialog):
         super().__init__(padre)
         self.db = db
         self.setWindowTitle("Alta de jugador")
-        self.setMinimumSize(860, 640)
+        self.setMinimumSize(860, 700)
         self.tutor_elegido = None
         raiz = QVBoxLayout(self)
         raiz.setContentsMargins(22, 18, 22, 18)
@@ -171,6 +256,7 @@ class DialogoAlta(QDialog):
         lj.addWidget(agregar, alignment=Qt.AlignLeft)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setWidget(caja_j)
         raiz.addWidget(scroll, 1)
         self.agregar_jugador()

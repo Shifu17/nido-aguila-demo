@@ -1,7 +1,7 @@
 """Recorre la interfaz como lo haría el usuario (sin mostrar ventanas)."""
 from datetime import date
 
-from PySide6.QtCore import QDate, QTimer
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from app import dialogos
@@ -21,11 +21,11 @@ def test_alta_desde_el_dialogo(ventana):
     d.t_nombre.setText("Carlos Pérez")
     d.t_tel.setText("8441239999")
     d.filas[0].nombre.setText("Bruno Pérez")
-    d.filas[0].fecha.setDate(QDate(2014, 5, 1))
-    assert d.filas[0].categoria.currentText() == "2014"  # categoría sugerida por año
+    d.filas[0].fecha.poner(2014, 5, 1)
+    assert d.filas[0].categoria.currentText() == "2014"  # categoría automática por año
     d.agregar_jugador()
     d.filas[1].nombre.setText("Ana Pérez")
-    d.filas[1].fecha.setDate(QDate(2016, 1, 1))
+    d.filas[1].fecha.poner(2016, 1, 1)
     d.filas[1].categoria.setCurrentIndex(d.filas[1].categoria.findText("Femenil"))
     d.guardar()
     assert d.resultado[1] == 2
@@ -87,3 +87,35 @@ def test_navegacion_y_ajustes(ventana):
     assert ventana.paginas["recibos"].tabla.rowCount() > 20
     QTimer.singleShot(0, QApplication.instance().quit)
     assert date.today().year >= 2026
+
+
+def test_fecha_y_categoria_automatica(ventana):
+    d = dialogos.DialogoAlta(ventana.db, ventana)
+    f = d.filas[0]
+    assert f.datos()["fecha_nac"] == "" and f.categoria.currentData() is None
+    f.fecha.poner(2009, 3, 14)
+    assert f.categoria.currentText() == "2009-2010"
+    assert f.datos()["fecha_nac"] == "2009-03-14"
+    f.fecha.poner(2010, 7, 1)
+    assert f.categoria.currentText() == "2009-2010"
+    f.fecha.poner(2017, 7, 1)
+    assert f.categoria.currentText() == "2017"
+    # Femenil se elige a mano y no se pierde al corregir el año
+    f.categoria.setCurrentIndex(f.categoria.findText("Femenil"))
+    f.categoria.activated.emit(f.categoria.currentIndex())
+    f.fecha.poner(2015, 7, 1)
+    assert f.categoria.currentText() == "Femenil"
+    # Año sin categoría: queda vacía para elegirla a mano
+    g = dialogos.FilaJugador(ventana.db.categorias(), ventana.db, lambda _: None)
+    g.fecha.poner(2005, 1, 1)
+    assert g.categoria.currentData() is None and "2005" in g.nota.text()
+
+
+def test_dias_segun_mes(ventana):
+    f = dialogos.CampoFecha()
+    f.poner(2012, 2, 29)  # bisiesto
+    assert f.valor() == "2012-02-29"
+    f.anio.setCurrentIndex(f.anio.findData(2013))  # no bisiesto: se ajusta al 28
+    assert f.valor() == "2013-02-28"
+    f.mes.setCurrentIndex(f.mes.findData(4))
+    assert f.dia.count() == 31  # "Día" + 30 días de abril

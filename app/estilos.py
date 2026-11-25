@@ -50,6 +50,7 @@ QPushButton#nav:checked {{ background: {MARINO_2}; color: white; }}
 #subtitulo {{ color: {SUAVE}; }}
 #seccion {{ font-size: 12pt; font-weight: 700; color: {MARINO}; }}
 #suave {{ color: {SUAVE}; }}
+#nota {{ color: {VERDE}; font-size: 8.5pt; }}
 #vacio {{ color: {SUAVE}; font-size: 11pt; padding: 40px; background: {TARJETA};
           border: 1px solid {BORDE}; border-radius: 12px; }}
 
