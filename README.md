@@ -1,5 +1,11 @@
 # Club Nido Águila — demo
 
+## ⬇ Descargar
+
+**[Descargar NidoAguila.exe (última versión)](https://github.com/Shifu17/nido-aguila-demo/releases/latest/download/NidoAguila.exe)**
+
+Se abre con doble clic, sin instalar nada. Si Windows muestra "Windows protegió su PC", elige *Más información → Ejecutar de todas formas* (el programa no está firmado digitalmente). Para probarlo rápido: *Ajustes → Cargar datos de ejemplo*.
+
 Programa de escritorio para Windows (un solo `NidoAguila.exe`, sin instalar nada) con tres partes de la cotización:
 
 1. **Alta de jugadores**: un tutor con uno o varios hijos, teléfono principal (WhatsApp) y contacto de emergencia. La categoría se sugiere por año de nacimiento (2009-2010 a 2018) y Femenil se elige a mano. Bajas con motivo y reactivación.
