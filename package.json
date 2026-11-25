@@ -1,0 +1,52 @@
+{
+  "name": "club-nido-aguila",
+  "productName": "Club Nido Aguila",
+  "version": "0.1.0",
+  "description": "Demo: alta de jugadores y cobro de mensualidades con recibo",
+  "main": "main.js",
+  "author": "Saul Lopez",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/db.test.js",
+    "dist": "electron-builder --win nsis"
+  },
+  "dependencies": {
+    "sql.js": "1.12.0"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "mx.nidoaguila.club",
+    "productName": "Club Nido Aguila",
+    "copyright": "Saul Lopez",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "renderer/**/*"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Club Nido Águila",
+      "installerLanguages": ["es_ES"],
+      "language": "3082",
+      "artifactName": "ClubNidoAguila-Setup-${version}.exe"
+    }
+  }
+}
